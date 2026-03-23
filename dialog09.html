@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --secondary: #e0f2f1;
+            --bg: #f4f7f6;
+            --correct: #4caf50;
+            --wrong: #f44336;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 700px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        h2 { color: var(--primary); text-align: center; margin-top: 0; }
+        p { text-align: center; color: #555; margin-bottom: 20px; }
+
+        /* Satz-Pool */
+        .pool {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 30px;
+            padding: 10px;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            background: #fafafa;
+        }
+
+        .sentence-card {
+            padding: 10px 15px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: transform 0.2s, background 0.2s;
+            user-select: none;
+        }
+
+        .sentence-card:hover { background: var(--secondary); }
+
+        /* Ergebnis / Dialogverlauf */
+        .dialog-result {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-height: 100px;
+            padding: 10px;
+            border-top: 2px solid var(--primary);
+            margin-top: 20px;
+        }
+
+        .bubble {
+            max-width: 85%;
+            padding: 10px 15px;
+            border-radius: 15px;
+            font-size: 0.95rem;
+            position: relative;
+            cursor: pointer;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Sprechblasen-Farben */
+        .bubble.odd { align-self: flex-start; background: var(--secondary); border-bottom-left-radius: 2px; }
+        .bubble.even { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 2px; }
+
+        .correct { border: 3px solid var(--correct) !important; }
+        .wrong { border: 3px solid var(--wrong) !important; }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 25px;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            color: white;
+            transition: opacity 0.3s;
+        }
+
+        .check-btn { background: var(--primary); }
+        .reset-btn { background: #777; }
+        .sol-btn { background: none; color: #777; text-decoration: underline; font-size: 0.9rem; margin-top: 15px; width: 100%; }
+
+        @media (max-width: 480px) {
+            .bubble { max-width: 95%; font-size: 0.9rem; }
+            .sentence-card { font-size: 0.85rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Dialog-Reihenfolge</h2>
+    <p>Tippe die Sätze in der richtigen Reihenfolge an, um das Gespräch aufzubauen:</p>
+
+    <div id="pool" class="pool">
+        <!-- Sätze erscheinen hier -->
+    </div>
+
+    <div id="dialog-result" class="dialog-result">
+        <!-- Gewählte Sätze erscheinen hier als Chat -->
+    </div>
+
+    <div class="controls">
+        <button class="reset-btn" onclick="resetDialog()">Zurücksetzen</button>
+        <button class="check-btn" onclick="checkDialog()">Prüfen</button>
+    </div>
+    
+    <button class="sol-btn" onclick="showSolution()">Lösung anzeigen</button>
+</div>
+
+<script>
+    // Die Sätze in der korrekten logischen Reihenfolge
+    const correctOrder = [
+        "Здравствуйте! Чем я могу вам помочь?",
+        "Здравствуйте! У меня температура. У вас есть что-нибудь от неё?",
+        "Какая у вас температура и какие еще симптомы есть?",
+        "Тридцать восемь и семь (38,7). Болит голова, заложен нос.",
+        "Я дам вам жаропонижающее. Оно собьет температуру и снимет головную боль. От насморка возьмите эти капли.",
+        "Спасибо! Скажите, как принимать жаропонижающее?",
+        "Оно в капсулах. Принимайте по одной капсуле два раза в день во время еды.",
+        "Большое спасибо! А побочные действия у жаропонижающего есть?",
+        "Да, может быть сонливость."
+    ];
+
+    let currentPool = [];
+    let currentDialog = [];
+
+    function initGame() {
+        currentDialog = [];
+        document.getElementById('dialog-result').innerHTML = "";
+        
+        // Sätze mischen
+        currentPool = [...correctOrder].sort(() => Math.random() - 0.5);
+        renderPool();
+    }
+
+    function renderPool() {
+        const poolEl = document.getElementById('pool');
+        poolEl.innerHTML = "";
+        currentPool.forEach((text, index) => {
+            const card = document.createElement('div');
+            card.className = 'sentence-card';
+            card.innerText = text;
+            card.onclick = () => addToDialog(text, index);
+            poolEl.appendChild(card);
+        });
+    }
+
+    function addToDialog(text, index) {
+        currentDialog.push(text);
+        currentPool.splice(index, 1);
+        renderPool();
+        renderDialog();
+    }
+
+    function renderDialog() {
+        const resultEl = document.getElementById('dialog-result');
+        resultEl.innerHTML = "";
+        currentDialog.forEach((text, index) => {
+            const bubble = document.createElement('div');
+            // Abwechselnd links (Apotheker) und rechts (Kunde)
+            bubble.className = `bubble ${index % 2 === 0 ? 'odd' : 'even'}`;
+            bubble.innerText = text;
+            bubble.onclick = () => removeFromDialog(index);
+            resultEl.appendChild(bubble);
+        });
+    }
+
+    function removeFromDialog(index) {
+        const text = currentDialog[index];
+        currentDialog.splice(index, 1);
+        currentPool.push(text);
+        renderPool();
+        renderDialog();
+    }
+
+    function resetDialog() {
+        initGame();
+    }
+
+    function checkDialog() {
+        const bubbles = document.querySelectorAll('.bubble');
+        let allCorrect = true;
+
+        bubbles.forEach((bubble, index) => {
+            if (currentDialog[index] === correctOrder[index]) {
+                bubble.classList.add('correct');
+                bubble.classList.remove('wrong');
+            } else {
+                bubble.classList.add('wrong');
+                bubble.classList.remove('correct');
+                allCorrect = false;
+            }
+        });
+
+        if (allCorrect && currentDialog.length === correctOrder.length) {
+            setTimeout(() => alert("Hervorragend! Der Dialog ist logisch korrekt."), 300);
+        }
+    }
+
+    function showSolution() {
+        currentDialog = [...correctOrder];
+        currentPool = [];
+        renderPool();
+        renderDialog();
+        checkDialog(); // Alles grün markieren
+    }
+
+    initGame();
+</script>
+
+</body>
+</html>
