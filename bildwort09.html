@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --bg: #f4f7f6;
+            --text: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            margin: 0;
+        }
+
+        .task-container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        h2 { color: var(--primary); text-align: center; margin-top: 0; }
+        p { text-align: center; margin-bottom: 20px; }
+
+        .matching-area {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .item {
+            padding: 12px;
+            border: 2px solid #eee;
+            border-radius: 10px;
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 50px;
+            font-weight: bold;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            text-align: center;
+        }
+
+        .image-item { font-size: 2rem; }
+        .word-item { font-size: 1.1rem; }
+
+        /* Zustände */
+        .selected {
+            border-color: var(--primary);
+            background-color: #e0f2f1;
+        }
+
+        .matched {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.8);
+        }
+
+        /* Lösungsfarben für die Paare */
+        .pair-0 { background-color: #ffcdd2 !important; border-color: #e53935; }
+        .pair-1 { background-color: #e1bee7 !important; border-color: #8e24aa; }
+        .pair-2 { background-color: #c5cae9 !important; border-color: #3f51b5; }
+        .pair-3 { background-color: #b3e5fc !important; border-color: #03a9f4; }
+        .pair-4 { background-color: #b2dfdb !important; border-color: #009688; }
+        .pair-5 { background-color: #dcedc8 !important; border-color: #8bc34a; }
+        .pair-6 { background-color: #fff9c4 !important; border-color: #fbc02d; }
+        .pair-7 { background-color: #ffe0b2 !important; border-color: #fb8c00; }
+        .pair-8 { background-color: #d7ccc8 !important; border-color: #795548; }
+        .pair-9 { background-color: #f5f5f5 !important; border-color: #9e9e9e; }
+
+        /* Buttons */
+        .btn-container {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 25px;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: opacity 0.3s;
+        }
+
+        .reset-btn { background: var(--primary); color: white; }
+        .sol-btn { background: #555; color: white; }
+        button:hover { opacity: 0.9; }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .matching-area { flex-direction: column; }
+            .column { width: 100%; }
+            .word-item { order: 1; }
+            .image-item { order: 2; display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+            .image-item .item { min-height: 60px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="task-container">
+    <h2>Bild-Wort-Matching</h2>
+    <p>Wähle ein Wort und dann das passende Emoji. Richtige Paare verschwinden.</p>
+
+    <div class="matching-area">
+        <div class="column" id="words-col"></div>
+        <div class="column" id="images-col"></div>
+    </div>
+
+    <div class="btn-container">
+        <button class="sol-btn" onclick="showSolution()">Lösung anzeigen</button>
+        <button class="reset-btn" onclick="initTask()">Neu starten</button>
+    </div>
+</div>
+
+<script>
+    const data = [
+        { id: 0, word: 'таблетки', emoji: '💊' },
+        { id: 1, word: 'капли', emoji: '💧' },
+        { id: 2, word: 'сироп', emoji: '🥤' },
+        { id: 3, word: 'мазь', emoji: '🧴' },
+        { id: 4, word: 'ампулы', emoji: '💉' },
+        { id: 5, word: 'рецепт', emoji: '📝' },
+        { id: 6, word: 'врач', emoji: '👨‍⚕️' },
+        { id: 7, word: 'насмоrk', emoji: '🤧' },
+        { id: 8, word: 'температура', emoji: '🌡️' },
+        { id: 9, word: 'пластырь', emoji: '🩹' }
+    ];
+
+    let selectedElement = null;
+
+    function shuffle(arr) {
+        return arr.sort(() => Math.random() - 0.5);
+    }
+
+    function initTask() {
+        selectedElement = null;
+        const wCol = document.getElementById('words-col');
+        const iCol = document.getElementById('images-col');
+        wCol.innerHTML = '';
+        iCol.innerHTML = '';
+
+        // Wörter rendern
+        shuffle([...data]).forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'item word-item';
+            div.textContent = item.word;
+            div.dataset.id = item.id;
+            div.onclick = () => handleSelect(div, 'word');
+            wCol.appendChild(div);
+        });
+
+        // Emojis rendern
+        shuffle([...data]).forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'item image-item';
+            div.textContent = item.emoji;
+            div.dataset.id = item.id;
+            div.onclick = () => handleSelect(div, 'emoji');
+            iCol.appendChild(div);
+        });
+    }
+
+    function handleSelect(el, type) {
+        if (el.classList.contains('matched')) return;
+
+        if (!selectedElement) {
+            // Erste Auswahl
+            selectedElement = el;
+            el.classList.add('selected');
+        } else {
+            // Zweite Auswahl prüfen
+            if (selectedElement === el) {
+                el.classList.remove('selected');
+                selectedElement = null;
+                return;
+            }
+
+            if (selectedElement.dataset.id === el.dataset.id) {
+                // Treffer
+                selectedElement.classList.add('matched');
+                el.classList.add('matched');
+                selectedElement.classList.remove('selected');
+                selectedElement = null;
+            } else {
+                // Kein Treffer
+                selectedElement.classList.remove('selected');
+                el.classList.add('selected');
+                selectedElement = el;
+            }
+        }
+    }
+
+    function showSolution() {
+        const items = document.querySelectorAll('.item');
+        items.forEach(item => {
+            if (!item.classList.contains('matched')) {
+                const id = item.dataset.id;
+                item.classList.add(`pair-${id}`);
+                item.classList.remove('selected');
+            }
+        });
+    }
+
+    initTask();
+</script>
+
+</body>
+</html>
