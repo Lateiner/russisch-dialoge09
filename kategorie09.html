@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --symptom-color: #f44336;
+            --med-color: #2196f3;
+            --bg: #f4f7f6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            touch-action: manipulation;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            padding: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        #lives { color: var(--symptom-color); }
+
+        #game-canvas {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            background: #fafafa;
+            border: 2px solid #eee;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        .word {
+            position: absolute;
+            padding: 10px 15px;
+            background: var(--primary);
+            color: white;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .drop-zone {
+            flex: 1;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        #zone-symptoms { background-color: var(--symptom-color); }
+        #zone-meds { background-color: var(--med-color); }
+
+        /* Game Over Screen */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            z-index: 100;
+        }
+
+        button {
+            padding: 12px 25px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        /* Lösungstabelle */
+        .solution-table {
+            margin-top: 30px;
+            width: 100%;
+            border-collapse: collapse;
+            display: none;
+        }
+
+        .solution-table th, .solution-table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        .head-symp { background: var(--symptom-color); color: white; }
+        .head-med { background: var(--med-color); color: white; }
+
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <h2>Heißer Stuhl: Symptom oder Medikament?</h2>
+    
+    <div class="stats">
+        <div>Punkte: <span id="score">0</span></div>
+        <div id="lives">❤️❤️❤️</div>
+    </div>
+
+    <div id="game-canvas">
+        <div id="overlay" class="overlay">
+            <h3 id="overlay-title">Bereit?</h3>
+            <p id="overlay-text">Sortiere die fallenden Wörter!</p>
+            <button onclick="startGame()">Start</button>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div id="zone-symptoms" class="drop-zone" onclick="classify('symptom')">Симптомы<br>(Symptome)</div>
+        <div id="zone-meds" class="drop-zone" onclick="classify('med')">Лекарства<br>(Medikamente)</div>
+    </div>
+
+    <center>
+        <button onclick="toggleSolution()" style="background:#777; margin-top: 20px;">Lösung anzeigen / verbergen</button>
+    </center>
+
+    <table id="solution" class="solution-table">
+        <tr>
+            <th class="head-symp">Симптомы (Symptome)</th>
+            <th class="head-med">Лекарства (Medikamente)</th>
+        </tr>
+        <tr>
+            <td>температура (Fieber)</td>
+            <td>таблетки (Tabletten)</td>
+        </tr>
+        <tr>
+            <td>насморк (Schnupfen)</td>
+            <td>капли (Tropfen)</td>
+        </tr>
+        <tr>
+            <td>болит голова (Kopfweh)</td>
+            <td>сироп (Sirup)</td>
+        </tr>
+        <tr>
+            <td>заложен нос (Nase zu)</td>
+            <td>мазь (Salbe)</td>
+        </tr>
+        <tr>
+            <td>жар (Hitze/Fieber)</td>
+            <td>жаропонижающее (Fiebersenker)</td>
+        </tr>
+        <tr>
+            <td>болит живот (Bauchweh)</td>
+            <td>обезболивающее (Schmerzmittel)</td>
+        </tr>
+        <tr>
+            <td>сонливость (Schläfrigkeit)</td>
+            <td>антибиотик (Antibiotikum)</td>
+        </tr>
+    </table>
+</div>
+
+<script>
+    const vocabulary = [
+        { t: 'температура', c: 'symptom' },
+        { t: 'таблетки', c: 'med' },
+        { t: 'насморк', c: 'symptom' },
+        { t: 'капли', c: 'med' },
+        { t: 'болит голова', c: 'symptom' },
+        { t: 'сироп', c: 'med' },
+        { t: 'заложен нос', c: 'symptom' },
+        { t: 'мазь', c: 'med' },
+        { t: 'жаропонижающее', c: 'med' },
+        { t: 'обезболивающее', c: 'med' },
+        { t: 'жар', c: 'symptom' },
+        { t: 'антибиотик', c: 'med' },
+        { t: 'болит живот', c: 'symptom' },
+        { t: 'сонливость', c: 'symptom' }
+    ];
+
+    let score = 0;
+    let lives = 3;
+    let gameActive = false;
+    let currentWordEl = null;
+    let animationInterval;
+
+    function startGame() {
+        score = 0;
+        lives = 3;
+        gameActive = true;
+        updateUI();
+        document.getElementById('overlay').style.display = 'none';
+        spawnWord();
+    }
+
+    function updateUI() {
+        document.getElementById('score').innerText = score;
+        document.getElementById('lives').innerText = "❤️".repeat(lives);
+    }
+
+    function spawnWord() {
+        if (!gameActive) return;
+        if (currentWordEl) currentWordEl.remove();
+
+        const wordData = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+        const el = document.createElement('div');
+        el.className = 'word';
+        el.innerText = wordData.t;
+        el.dataset.category = wordData.c;
+        
+        const canvas = document.getElementById('game-canvas');
+        canvas.appendChild(el);
+        currentWordEl = el;
+
+        let pos = 0;
+        const speed = 1.2 + (score * 0.05); // Wird langsam schneller
+
+        clearInterval(animationInterval);
+        animationInterval = setInterval(() => {
+            if (!gameActive) return;
+            pos += speed;
+            el.style.top = pos + 'px';
+
+            if (pos > canvas.offsetHeight - 40) {
+                // Boden berührt -> Leben verlieren
+                loseLife();
+            }
+        }, 20);
+    }
+
+    function classify(category) {
+        if (!gameActive || !currentWordEl) return;
+
+        if (currentWordEl.dataset.category === category) {
+            score++;
+            currentWordEl.style.background = "#4CAF50";
+        } else {
+            loseLife();
+            currentWordEl.style.background = "#F44336";
+        }
+
+        setTimeout(() => {
+            if (gameActive) spawnWord();
+            updateUI();
+        }, 200);
+    }
+
+    function loseLife() {
+        lives--;
+        updateUI();
+        if (lives <= 0) {
+            endGame();
+        } else {
+            spawnWord();
+        }
+    }
+
+    function endGame() {
+        gameActive = false;
+        clearInterval(animationInterval);
+        if (currentWordEl) currentWordEl.remove();
+        
+        const overlay = document.getElementById('overlay');
+        overlay.style.display = 'flex';
+        document.getElementById('overlay-title').innerText = "Spiel vorbei!";
+        document.getElementById('overlay-text').innerText = "Deine Punkte: " + score;
+    }
+
+    function toggleSolution() {
+        const table = document.getElementById('solution');
+        table.style.display = (table.style.display === 'table') ? 'none' : 'table';
+        table.scrollIntoView({ behavior: 'smooth' });
+    }
+</script>
+
+</body>
+</html>
