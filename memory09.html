@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --bg: #f0f4f4;
+            --card-back: #00796b;
+            --card-front: #ffffff;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        h2 {
+            color: var(--primary);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background-color: #004d40;
+        }
+
+        /* Das Grid passt sich automatisch der Bildschirmbreite an */
+        .memory-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        @media (max-width: 450px) {
+            .memory-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .card {
+            aspect-ratio: 1 / 1;
+            background-color: var(--card-back);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            user-select: none;
+            transition: transform 0.2s, opacity 0.5s;
+            border: 2px solid transparent;
+        }
+
+        /* Text in russisch/deutsch erst beim Umdrehen zeigen */
+        .card span {
+            display: none;
+        }
+
+        .card.flipped {
+            background-color: var(--card-front);
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            cursor: default;
+        }
+
+        .card.flipped span {
+            display: block;
+        }
+
+        /* Gefundene Paare verschwinden */
+        .card.matched {
+            opacity: 0;
+            pointer-events: none;
+            cursor: default;
+        }
+
+        /* Farben für die Lösung */
+        .sol-0 { background-color: #e53935 !important; color: white !important; }
+        .sol-1 { background-color: #1e88e5 !important; color: white !important; }
+        .sol-2 { background-color: #43a047 !important; color: white !important; }
+        .sol-3 { background-color: #fdd835 !important; color: black !important; }
+        .sol-4 { background-color: #8e24aa !important; color: white !important; }
+        .sol-5 { background-color: #fb8c00 !important; color: white !important; }
+        .sol-6 { background-color: #00acc1 !important; color: white !important; }
+        .sol-7 { background-color: #d81b60 !important; color: white !important; }
+
+    </style>
+</head>
+<body>
+
+    <h2>Vokabel-Memory: In der Apotheke</h2>
+    <div class="controls">
+        <button onclick="revealSolution()">Lösung anzeigen</button>
+        <button onclick="resetGame()" style="background-color: #777;">Neu starten</button>
+    </div>
+
+    <div class="memory-grid" id="grid"></div>
+
+    <script>
+        const pairs = [
+            { ru: 'капли', de: 'Tropfen' },
+            { ru: 'рецепт', de: 'Rezept' },
+            { ru: 'мазь', de: 'Salbe' },
+            { ru: 'врач', de: 'Arzt' },
+            { ru: 'насморк', de: 'Schnupfen' },
+            { ru: 'капсулы', de: 'Kapseln' },
+            { ru: 'таблетки', de: 'Tabletten' },
+            { ru: 'сироп', de: 'Sirup' }
+        ];
+
+        let cards = [];
+        let flippedCards = [];
+        let lockBoard = false;
+
+        function initGame() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            cards = [];
+            flippedCards = [];
+            lockBoard = false;
+
+            // Karten-Array erstellen
+            pairs.forEach((pair, index) => {
+                cards.push({ text: pair.ru, pairId: index, lang: 'ru' });
+                cards.push({ text: pair.de, pairId: index, lang: 'de' });
+            });
+
+            // Mischen
+            cards.sort(() => Math.random() - 0.5);
+
+            // DOM Elemente erstellen
+            cards.forEach((cardData, i) => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.pairId = cardData.pairId;
+                card.innerHTML = `<span>${cardData.text}</span>`;
+                card.addEventListener('click', () => flipCard(card));
+                grid.appendChild(card);
+            });
+        }
+
+        function flipCard(card) {
+            if (lockBoard || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+            card.classList.add('flipped');
+            flippedCards.push(card);
+
+            if (flippedCards.length === 2) {
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            const [card1, card2] = flippedCards;
+            const isMatch = card1.dataset.pairId === card2.dataset.pairId;
+
+            if (isMatch) {
+                disableCards();
+            } else {
+                unflipCards();
+            }
+        }
+
+        function disableCards() {
+            lockBoard = true;
+            setTimeout(() => {
+                flippedCards[0].classList.add('matched');
+                flippedCards[1].classList.add('matched');
+                resetBoard();
+            }, 600);
+        }
+
+        function unflipCards() {
+            lockBoard = true;
+            setTimeout(() => {
+                flippedCards[0].classList.remove('flipped');
+                flippedCards[1].classList.remove('flipped');
+                resetBoard();
+            }, 1000);
+        }
+
+        function resetBoard() {
+            flippedCards = [];
+            lockBoard = false;
+        }
+
+        function revealSolution() {
+            const allCards = document.querySelectorAll('.card');
+            allCards.forEach(card => {
+                if (!card.classList.contains('matched')) {
+                    card.classList.add('flipped');
+                    // Paar-Farbe zuweisen
+                    const colorId = card.dataset.pairId;
+                    card.classList.add(`sol-${colorId}`);
+                }
+            });
+            lockBoard = true; // Spiel pausieren
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        // Start
+        initGame();
+    </script>
+</body>
+</html>
