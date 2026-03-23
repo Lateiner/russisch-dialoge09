@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --secondary: #26a69a;
+            --bg: #f4f7f6;
+            --correct: #4caf50;
+            --wrong: #f44336;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .puzzle-container {
+            max-width: 600px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        h2 { color: var(--primary); text-align: center; margin-top: 0; }
+        p { text-align: center; color: #555; }
+
+        .drop-zone, .word-pool {
+            min-height: 60px;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-content: flex-start;
+            margin-bottom: 20px;
+            background-color: #fafafa;
+        }
+
+        .drop-zone {
+            border: 2px solid var(--primary);
+            background-color: #fff;
+        }
+
+        .word-tile {
+            padding: 10px 15px;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            user-select: none;
+            transition: transform 0.2s, background-color 0.2s;
+            font-size: 1.1rem;
+        }
+
+        .word-tile:hover { opacity: 0.9; }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            color: white;
+        }
+
+        .check-btn { background-color: var(--primary); }
+        .reset-btn { background-color: #777; }
+        .next-btn { background-color: var(--secondary); }
+
+        .feedback {
+            text-align: center;
+            margin-top: 15px;
+            font-weight: bold;
+            min-height: 1.2em;
+        }
+
+        .correct-anim { background-color: var(--correct) !important; }
+        .wrong-anim { background-color: var(--wrong) !important; }
+
+        @media (max-width: 480px) {
+            .word-tile { font-size: 1rem; padding: 8px 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="puzzle-container">
+    <h2>Satz-Puzzle</h2>
+    <p>Bilde den richtigen Satz, indem du die Wörter anklickst:</p>
+
+    <div id="drop-zone" class="drop-zone"></div>
+    <div id="word-pool" class="word-pool"></div>
+
+    <div class="feedback" id="feedback"></div>
+
+    <div class="controls">
+        <button class="reset-btn" onclick="resetSentence()">Zurücksetzen</button>
+        <button class="check-btn" onclick="checkOrder()">Prüfen</button>
+        <button id="next-btn" class="next-btn" onclick="nextSentence()" style="display:none;">Nächster Satz</button>
+    </div>
+    
+    <button onclick="showSolution()" style="margin-top:20px; background:none; border:none; color:#999; text-decoration:underline; cursor:pointer; width:100%;">Lösung anzeigen</button>
+</div>
+
+<script>
+    const puzzles = [
+        ["У", "вас", "есть", "что-нибудь", "от", "неё?"],
+        ["Чем", "я", "могу", "вам", "помочь?"],
+        ["Я", "дам", "вам", "жаропонижающее."],
+        ["Как", "принимать", "жаропонижающее?"],
+        ["Болит", "голова,", "заложен", "нос."],
+        ["А", "побочные", "действия", "есть?"]
+    ];
+
+    let currentSentenceIndex = 0;
+    let correctSentence = [];
+    let currentPool = [];
+
+    const dropZone = document.getElementById('drop-zone');
+    const wordPool = document.getElementById('word-pool');
+    const feedback = document.getElementById('feedback');
+
+    function initPuzzle() {
+        feedback.innerText = "";
+        feedback.style.color = "black";
+        document.getElementById('next-btn').style.display = "none";
+        dropZone.innerHTML = "";
+        
+        correctSentence = puzzles[currentSentenceIndex];
+        // Wörter mischen
+        currentPool = [...correctSentence].sort(() => Math.random() - 0.5);
+        
+        renderPool();
+    }
+
+    function renderPool() {
+        wordPool.innerHTML = "";
+        currentPool.forEach((word, index) => {
+            if (word !== null) {
+                const tile = document.createElement('div');
+                tile.className = 'word-tile';
+                tile.innerText = word;
+                tile.onclick = () => moveToDropZone(index);
+                wordPool.appendChild(tile);
+            }
+        });
+    }
+
+    function moveToDropZone(index) {
+        const word = currentPool[index];
+        currentPool[index] = null; // Aus Pool entfernen
+        
+        const tile = document.createElement('div');
+        tile.className = 'word-tile';
+        tile.innerText = word;
+        tile.onclick = () => moveToPool(word, tile);
+        
+        dropZone.appendChild(tile);
+        renderPool();
+    }
+
+    function moveToPool(word, tileElement) {
+        // Zurück in den Pool an die erste freie Stelle
+        const emptyIndex = currentPool.indexOf(null);
+        currentPool[emptyIndex] = word;
+        tileElement.remove();
+        renderPool();
+    }
+
+    function resetSentence() {
+        initPuzzle();
+    }
+
+    function checkOrder() {
+        const userTiles = dropZone.querySelectorAll('.word-tile');
+        const userSentence = Array.from(userTiles).map(t => t.innerText);
+
+        if (userSentence.length < correctSentence.length) {
+            feedback.innerText = "Der Satz ist noch nicht vollständig!";
+            feedback.style.color = "orange";
+            return;
+        }
+
+        const isCorrect = JSON.stringify(userSentence) === JSON.stringify(correctSentence);
+
+        if (isCorrect) {
+            feedback.innerText = "Richtig! „" + correctSentence.join(" ") + "“";
+            feedback.style.color = "green";
+            userTiles.forEach(t => t.classList.add('correct-anim'));
+            document.getElementById('next-btn').style.display = "block";
+        } else {
+            feedback.innerText = "Leider falsch. Versuche es noch einmal!";
+            feedback.style.color = "red";
+            userTiles.forEach(t => t.classList.add('wrong-anim'));
+            setTimeout(() => {
+                userTiles.forEach(t => t.classList.remove('wrong-anim'));
+            }, 1000);
+        }
+    }
+
+    function showSolution() {
+        dropZone.innerHTML = "";
+        correctSentence.forEach(word => {
+            const tile = document.createElement('div');
+            tile.className = 'word-tile correct-anim';
+            tile.innerText = word;
+            dropZone.appendChild(tile);
+        });
+        currentPool = [];
+        renderPool();
+        feedback.innerText = "Lösung: „" + correctSentence.join(" ") + "“";
+        document.getElementById('next-btn').style.display = "block";
+    }
+
+    function nextSentence() {
+        currentSentenceIndex = (currentSentenceIndex + 1) % puzzles.length;
+        initPuzzle();
+    }
+
+    initPuzzle();
+</script>
+
+</body>
+</html>
