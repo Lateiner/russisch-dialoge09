@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --bg: #f4f7f6;
+            --success: #4caf50;
+            --error: #f44336;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .game-container {
+            max-width: 500px;
+            width: 100%;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        h2 { color: var(--primary); margin-top: 0; }
+
+        /* Audio Button */
+        .audio-btn {
+            width: 100px;
+            height: 100px;
+            background-color: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            margin: 20px auto;
+            border: none;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 10px rgba(0,121,107,0.3);
+        }
+
+        .audio-btn:active { transform: scale(0.9); }
+        .audio-btn svg { fill: white; width: 50px; height: 50px; }
+
+        /* Bild/Emoji Auswahl */
+        .choices-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .choice-card {
+            aspect-ratio: 1/1;
+            background: #f9f9f9;
+            border: 3px solid #eee;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .choice-card:hover { border-color: var(--primary); background: #e0f2f1; }
+
+        .correct { border-color: var(--success) !important; background-color: #e8f5e9 !important; }
+        .wrong { border-color: var(--error) !important; background-color: #ffebee !important; animation: shake 0.4s; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* Controls */
+        .controls {
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        button.main-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            background: var(--primary);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .sol-btn {
+            background: none;
+            border: none;
+            color: #888;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .progress { margin-bottom: 10px; font-size: 0.9rem; color: #666; }
+
+        @media (max-width: 400px) {
+            .choice-card { font-size: 2.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="progress" id="progress">Frage 1 von 8</div>
+    <h2>Hör genau zu!</h2>
+    <p>Klicke auf den Button, um das Wort zu hören.</p>
+
+    <button class="audio-btn" onclick="playCurrentWord()">
+        <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+    </button>
+
+    <div class="choices-grid" id="choices">
+        <!-- 3 Emojis erscheinen hier -->
+    </div>
+
+    <div class="controls">
+        <button id="next-btn" class="main-btn" style="display:none;" onclick="nextQuestion()">Nächste Frage</button>
+        <button id="restart-btn" class="main-btn" style="display:none;" onclick="restartGame()">Neustart</button>
+        <button class="sol-btn" onclick="showSolution()">Lösung anzeigen</button>
+    </div>
+</div>
+
+<script>
+    const quizData = [
+        { word: "насморк", emoji: "🤧", ru: "насморк" },
+        { word: "таблетки", emoji: "💊", ru: "таблетки" },
+        { word: "температура", emoji: "🌡️", ru: "температура" },
+        { word: "врач", emoji: "👨‍⚕️", ru: "врач" },
+        { word: "капли", emoji: "💧", ru: "капли" },
+        { word: "болит голова", emoji: "🤕", ru: "болит голова" },
+        { word: "сироп", emoji: "🥤", ru: "сироп" },
+        { word: "рецепт", emoji: "📝", ru: "рецепт" }
+    ];
+
+    let currentIndex = 0;
+    let answered = false;
+    let maleVoice = null;
+
+    // Stimmen initialisieren
+    function initVoices() {
+        const voices = window.speechSynthesis.getVoices();
+        // Suche gezielt nach Russisch + Männlich (Pavel, Maxim, Tolya etc.)
+        maleVoice = voices.find(v => v.lang.startsWith('ru') && 
+                    (v.name.includes('Male') || v.name.includes('Pavel') || v.name.includes('Maxim') || v.name.includes('Tolya'))) 
+                    || voices.find(v => v.lang.startsWith('ru'));
+    }
+
+    // Chrome braucht dieses Event
+    window.speechSynthesis.onvoiceschanged = initVoices;
+
+    function playCurrentWord() {
+        if (!maleVoice) initVoices();
+        const utterance = new SpeechSynthesisUtterance(quizData[currentIndex].ru);
+        utterance.voice = maleVoice;
+        utterance.lang = 'ru-RU';
+        utterance.rate = 0.8; // Etwas langsamer für besseres Verständnis
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function initQuestion() {
+        answered = false;
+        document.getElementById('next-btn').style.display = "none";
+        document.getElementById('progress').innerText = `Frage ${currentIndex + 1} von ${quizData.length}`;
+        
+        const correct = quizData[currentIndex];
+        
+        // Falsche Antworten finden
+        let distractors = quizData
+            .filter(item => item.emoji !== correct.emoji)
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 2);
+        
+        let choices = [...distractors, correct].sort(() => 0.5 - Math.random());
+        
+        const grid = document.getElementById('choices');
+        grid.innerHTML = "";
+        
+        choices.forEach(item => {
+            const card = document.createElement('div');
+            card.className = "choice-card";
+            card.innerText = item.emoji;
+            card.onclick = () => checkAnswer(card, item.emoji);
+            grid.appendChild(card);
+        });
+        
+        // Audio beim Start der Frage automatisch spielen (optional)
+        setTimeout(playCurrentWord, 500);
+    }
+
+    function checkAnswer(card, emoji) {
+        if (answered) return;
+        
+        if (emoji === quizData[currentIndex].emoji) {
+            card.classList.add('correct');
+            answered = true;
+            if (currentIndex < quizData.length - 1) {
+                document.getElementById('next-btn').style.display = "block";
+            } else {
+                document.getElementById('restart-btn').style.display = "block";
+            }
+        } else {
+            card.classList.add('wrong');
+            setTimeout(() => card.classList.remove('wrong'), 500);
+        }
+    }
+
+    function nextQuestion() {
+        currentIndex++;
+        initQuestion();
+    }
+
+    function showSolution() {
+        const cards = document.querySelectorAll('.choice-card');
+        cards.forEach(card => {
+            if (card.innerText === quizData[currentIndex].emoji) {
+                card.classList.add('correct');
+            }
+        });
+        answered = true;
+        if (currentIndex < quizData.length - 1) {
+            document.getElementById('next-btn').style.display = "block";
+        } else {
+            document.getElementById('restart-btn').style.display = "block";
+        }
+    }
+
+    function restartGame() {
+        currentIndex = 0;
+        document.getElementById('restart-btn').style.display = "none";
+        initQuestion();
+    }
+
+    // Initialisierung
+    setTimeout(() => {
+        initVoices();
+        initQuestion();
+    }, 100);
+
+</script>
+
+</body>
+</html>
