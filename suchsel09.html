@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --secondary: #e0f2f1;
+            --success: #4caf50;
+            --bg: #f4f7f6;
+            --text: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        h2 { color: var(--primary); margin-bottom: 10px; }
+        .instr { color: #666; font-size: 0.9rem; margin-bottom: 20px; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 5px;
+            background: #ccc;
+            padding: 5px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            user-select: none;
+            touch-action: none;
+        }
+
+        .cell {
+            aspect-ratio: 1 / 1;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .cell.selected { background-color: var(--primary); color: white; }
+        .cell.found { background-color: var(--success); color: white; }
+
+        .word-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .word-item {
+            padding: 5px 10px;
+            background: #eee;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            color: #777;
+        }
+
+        .word-item.found {
+            background: var(--success);
+            color: white;
+            text-decoration: line-through;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            background: var(--primary);
+            color: white;
+        }
+
+        @media (max-width: 400px) {
+            .cell { font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>В поиске слов</h2>
+    <p class="instr">Klicke auf den <b>ersten</b> und den <b>letzten</b> Buchstaben eines Wortes.<br>(Nur waagerecht oder senkrecht)</p>
+
+    <div id="word-list" class="word-list"></div>
+
+    <div id="grid" class="grid"></div>
+
+    <div class="controls">
+        <button onclick="restartGame()">Neustart</button>
+        <button onclick="showSolution()" style="background:#777">Lösung</button>
+    </div>
+</div>
+
+<script>
+    // Definition der Wörter und deren exakte Indizes im 8x8 Gitter (0-63)
+    const wordsToFind = [
+        { word: "АПТЕКА", cells: [0, 1, 2, 3, 4, 5] },    // Waagerecht Zeile 0
+        { word: "РЕЦЕПТ", cells: [8, 9, 10, 11, 12, 13] }, // Waagerecht Zeile 1
+        { word: "ВРАЧ", cells: [15, 23, 31, 39] },       // Senkrecht Spalte 7
+        { word: "ВИРУС", cells: [24, 25, 26, 27, 28] },  // Waagerecht Zeile 3
+        { word: "КАПЛИ", cells: [41, 42, 43, 44, 45] },  // Waagerecht Zeile 5
+        { word: "СИРОП", cells: [48, 49, 50, 51, 52] },  // Waagerecht Zeile 6
+        { word: "МАЗЬ", cells: [56, 57, 58, 59] }        // Waagerecht Zeile 7
+    ];
+
+    // Das 8x8 Gitter (64 Buchstaben)
+    const gridLetters = [
+        'А','П','Т','Е','К','А','Б','Г',
+        'Р','Е','Ц','Е','П','Т','Д','В',
+        'Е','Ж','З','И','Й','К','Л','Р',
+        'В','И','Р','У','С','М','Н','А',
+        'О','П','Р','С','Т','У','Ф','Ч',
+        'Х','К','А','П','Л','И','Ц','Ч',
+        'С','И','Р','О','П','Ш','Щ','Ъ',
+        'М','А','З','Ь','Ы','Ь','Э','Ю'
+    ];
+
+    let selectedCells = [];
+    let foundWords = [];
+
+    function initGame() {
+        foundWords = [];
+        selectedCells = [];
+        renderGrid();
+        renderWordList();
+    }
+
+    function renderGrid() {
+        const gridEl = document.getElementById('grid');
+        gridEl.innerHTML = "";
+        gridLetters.forEach((letter, index) => {
+            const cell = document.createElement('div');
+            cell.className = "cell";
+            cell.innerText = letter;
+            cell.dataset.index = index;
+            cell.onclick = () => handleCellClick(index);
+            gridEl.appendChild(cell);
+        });
+    }
+
+    function renderWordList() {
+        const listEl = document.getElementById('word-list');
+        listEl.innerHTML = "";
+        wordsToFind.forEach(item => {
+            const span = document.createElement('span');
+            span.className = "word-item" + (foundWords.includes(item.word) ? " found" : "");
+            span.innerText = item.word;
+            listEl.appendChild(span);
+        });
+    }
+
+    function handleCellClick(index) {
+        const cell = document.querySelector(`[data-index="${index}"]`);
+        
+        if (selectedCells.length === 0) {
+            // Erster Klick
+            selectedCells.push(index);
+            cell.classList.add('selected');
+        } else if (selectedCells.length === 1) {
+            // Zweiter Klick
+            const firstIndex = selectedCells[0];
+            const lastIndex = index;
+            
+            if (firstIndex === lastIndex) {
+                // Klick auf die gleiche Zelle hebt Auswahl auf
+                cell.classList.remove('selected');
+                selectedCells = [];
+                return;
+            }
+
+            checkMatch(firstIndex, lastIndex);
+            
+            // Auswahl immer zurücksetzen
+            document.querySelectorAll('.cell').forEach(c => c.classList.remove('selected'));
+            selectedCells = [];
+        }
+    }
+
+    function checkMatch(start, end) {
+        wordsToFind.forEach(item => {
+            if (!foundWords.includes(item.word)) {
+                // Prüfen ob Start/Ende übereinstimmen (beide Richtungen erlauben falls Klick-Reihenfolge anders)
+                if ((item.cells[0] === start && item.cells[item.cells.length - 1] === end) ||
+                    (item.cells[0] === end && item.cells[item.cells.length - 1] === start)) {
+                    
+                    foundWords.push(item.word);
+                    markFound(item.cells);
+                    renderWordList();
+                }
+            }
+        });
+    }
+
+    function markFound(indices) {
+        indices.forEach(idx => {
+            const cell = document.querySelector(`[data-index="${idx}"]`);
+            cell.classList.add('found');
+        });
+    }
+
+    function showSolution() {
+        wordsToFind.forEach(item => {
+            if (!foundWords.includes(item.word)) {
+                foundWords.push(item.word);
+                markFound(item.cells);
+            }
+        });
+        renderWordList();
+    }
+
+    function restartGame() {
+        initGame();
+    }
+
+    // Start
+    initGame();
+</script>
+
+</body>
+</html>
