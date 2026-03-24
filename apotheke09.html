@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interaktives Apothekenregal</title>
+    <style>
+        :root {
+            --primary: #00796b;
+            --white: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f0f4f4;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+        }
+
+        h2 { color: var(--primary); text-align: center; }
+
+        /* Container für das Bild und die Hotspots */
+        .shelf-container {
+            position: relative;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            line-height: 0; /* Verhindert Lücke unter dem Bild */
+        }
+
+        .shelf-image {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Styling der Hotspots */
+        .hotspot {
+            position: absolute;
+            width: 5%;
+            padding-bottom: 5%; /* Macht den Hotspot quadratisch/rund */
+            background-color: rgba(255, 255, 255, 0.4);
+            border: 2px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            animation: pulse 2s infinite;
+            transition: background 0.3s;
+        }
+
+        .hotspot:hover {
+            background-color: rgba(0, 121, 107, 0.6);
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 255, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+        }
+
+        /* Info-Fenster (Modal) */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 5px 30px rgba(0,0,0,0.5);
+            z-index: 100;
+            text-align: center;
+            min-width: 200px;
+        }
+
+        .modal h1 {
+            margin: 0;
+            color: var(--primary);
+            font-size: 2.5rem;
+        }
+
+        .modal p {
+            color: #666;
+            font-size: 1.2rem;
+            margin: 10px 0 20px 0;
+        }
+
+        .close-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 90;
+        }
+
+        /* Mobile Optimierung */
+        @media (max-width: 480px) {
+            .modal { width: 80%; }
+            .modal h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Interaktive Apotheke</h2>
+    <p>Klicke auf die Punkte, um die Vokabeln zu lernen.</p>
+
+    <div class="shelf-container">
+        <!-- Das Bild -->
+        <img src="apotheke.jpg" alt="Apothekenregal" class="shelf-image">
+
+        <!-- Hotspots (x, y Koordinaten in Prozent) -->
+        <div class="hotspot" style="top: 65%; left: 8%;" onclick="showVocab('Таблетки', 'Tabletten')"></div>
+        <div class="hotspot" style="top: 80%; left: 30%;" onclick="showVocab('Капсулы', 'Kapseln')"></div>
+        <div class="hotspot" style="top: 63%; left: 26%;" onclick="showVocab('Капли', 'Tropfen')"></div>
+        <div class="hotspot" style="top: 45%; left: 45%;" onclick="showVocab('Сироп', 'Sirup')"></div>
+        <div class="hotspot" style="top: 68%; left: 52%;" onclick="showVocab('Термометр', 'Thermometer')"></div>
+        <div class="hotspot" style="top: 58%; left: 75%;" onclick="showVocab('Мазь', 'Salbe')"></div>
+        <div class="hotspot" style="top: 78%; left: 88%;" onclick="showVocab('Пластырь', 'Pflaster')"></div>
+        <div class="hotspot" style="top: 86%; left: 60%;" onclick="showVocab('Рецепт', 'Rezept')"></div>
+    </div>
+
+    <!-- Modal & Overlay -->
+    <div id="overlay" class="overlay" onclick="closeModal()"></div>
+    <div id="modal" class="modal">
+        <h1 id="ru-word">Слово</h1>
+        <p id="de-word">Wort</p>
+        <button class="close-btn" onclick="closeModal()">Schließen</button>
+    </div>
+
+    <script>
+        let maleVoice = null;
+
+        // Stimmen laden und männliche russische Stimme suchen
+        function loadVoices() {
+            const voices = window.speechSynthesis.getVoices();
+            maleVoice = voices.find(v => v.lang.startsWith('ru') && 
+                (v.name.includes('Male') || v.name.includes('Pavel') || v.name.includes('Maxim'))) 
+                || voices.find(v => v.lang.startsWith('ru'));
+        }
+
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+
+        function showVocab(ru, de) {
+            document.getElementById('ru-word').innerText = ru;
+            document.getElementById('de-word').innerText = de;
+            document.getElementById('modal').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+
+            // Sprache ausgeben
+            if (!maleVoice) loadVoices();
+            const msg = new SpeechSynthesisUtterance(ru);
+            msg.voice = maleVoice;
+            msg.lang = 'ru-RU';
+            msg.rate = 0.8;
+            window.speechSynthesis.speak(msg);
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+            window.speechSynthesis.cancel();
+        }
+    </script>
+</body>
+</html>
