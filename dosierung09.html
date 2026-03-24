@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --bg: #f4f7f6;
+            --success: #4caf50;
+            --error: #f44336;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .progress { color: #888; font-size: 0.9rem; margin-bottom: 10px; }
+
+        .instruction-box {
+            background-color: #e0f2f1;
+            border-left: 5px solid var(--primary);
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: left;
+            border-radius: 8px;
+            min-height: 80px;
+        }
+
+        .ru-text { font-weight: bold; font-size: 1.1rem; color: var(--primary); display: block; margin-bottom: 5px; }
+        .de-text { font-size: 0.9rem; color: #555; }
+
+        .blister {
+            background: #d1d1d1;
+            border-radius: 12px;
+            padding: 15px;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin: 0 auto 20px;
+            max-width: 400px;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.2);
+        }
+
+        .slot {
+            aspect-ratio: 1 / 2;
+            background: #eee;
+            border-radius: 20px;
+            border: 2px solid #bbb;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+        }
+
+        .capsule {
+            width: 65%;
+            height: 80%;
+            background: linear-gradient(to bottom, #ef5350 50%, #fff 50%);
+            border-radius: 20px;
+            border: 1px solid #999;
+            opacity: 0.1;
+            transition: 0.3s;
+        }
+
+        .slot.selected .capsule {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .slot:hover { border-color: var(--primary); }
+
+        .controls { display: flex; flex-direction: column; gap: 10px; }
+        
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: opacity 0.2s;
+        }
+
+        button:active { opacity: 0.8; }
+
+        .btn-check { background: var(--primary); color: white; }
+        .btn-next { background: var(--success); color: white; display: none; }
+        .btn-restart-big { background: var(--primary); color: white; padding: 15px; margin-top: 20px; font-size: 1.2rem; }
+        
+        .reset-links { display: flex; justify-content: center; gap: 20px; margin-top: 10px; }
+        .link-btn { background: none; text-decoration: underline; color: #777; font-size: 0.85rem; padding: 5px; }
+
+        #feedback { font-weight: bold; margin-top: 10px; min-height: 1.5em; }
+        .correct { color: var(--success); }
+        .wrong { color: var(--error); }
+
+        /* Endbildschirm versteckt halten */
+        #end-screen { display: none; }
+
+        @media (max-width: 400px) {
+            .blister { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Spiel-Bereich -->
+    <div id="game-area">
+        <div class="progress" id="progress">Aufgabe 1 von 6</div>
+        <h2>Дозировка</h2>
+        
+        <div class="instruction-box">
+            <span class="ru-text" id="ru-instr">Lade...</span>
+            <span class="de-text" id="de-instr">Lade...</span>
+        </div>
+
+        <p id="task-desc">Markiere die richtige Menge Kapseln:</p>
+        
+        <div class="blister" id="blister"></div>
+
+        <div class="controls">
+            <button id="check-btn" class="btn-check" onclick="checkAnswer()">Prüfen</button>
+            <button id="next-btn" class="btn-next" onclick="nextTask()">Nächste Aufgabe ➔</button>
+            
+            <div class="reset-links">
+                <button class="link-btn" onclick="clearSlots()">Auswahl löschen</button>
+                <button class="link-btn" onclick="restartGame()">Ganz neu starten</button>
+            </div>
+        </div>
+        <div id="feedback"></div>
+    </div>
+
+    <!-- End-Bereich -->
+    <div id="end-screen">
+        <div style="font-size: 4rem; margin-bottom: 10px;">🎉</div>
+        <h2 id="end-title">Поздравляю!</h2>
+        <p>Du hast alle 6 Dosierungs-Aufgaben korrekt gelöst.</p>
+        <button class="btn-restart-big" onclick="restartGame()">Spiel neu starten</button>
+    </div>
+</div>
+
+<script>
+    const tasks = [
+        { ru: "Принимайте по одной капсуле два раза в день. Курс — 3 дня.", de: "Nimm zweimal täglich eine Kapsel. Dauer: 3 Tage.", correct: 6 },
+        { ru: "Принимайте по две капсулы один раз в день. Курс — 4 дня.", de: "Nimm einmal täglich zwei Kapseln. Dauer: 4 Tage.", correct: 8 },
+        { ru: "Принимайте по одной капсуле три раза в день. Курс — 5 дней.", de: "Nimm dreimal täglich eine Kapsel. Dauer: 5 Tage.", correct: 15 },
+        { ru: "Принимайте по две капсулы два раза в день. Курс — 2 дня.", de: "Nimm zweimal täglich zwei Kapseln. Dauer: 2 Tage.", correct: 8 },
+        { ru: "Принимайте по одной капсуле один раз в день. Курс — 7 дней.", de: "Nimm einmal täglich eine Kapsel. Dauer: 7 Tage.", correct: 7 },
+        { ru: "Принимайте по две капсулы три раза в день. Курс — 3 дня.", de: "Nimm dreimal täglich zwei Kapseln. Dauer: 3 Tage.", correct: 18 }
+    ];
+
+    let currentTaskIndex = 0;
+
+    // Blister-Grid initialisieren
+    function initBlister() {
+        const grid = document.getElementById('blister');
+        grid.innerHTML = "";
+        for (let i = 0; i < 20; i++) {
+            const slot = document.createElement('div');
+            slot.className = "slot";
+            slot.innerHTML = '<div class="capsule"></div>';
+            slot.onclick = () => {
+                if(document.getElementById('next-btn').style.display !== "block") {
+                    slot.classList.toggle('selected');
+                }
+            };
+            grid.appendChild(slot);
+        }
+    }
+
+    function loadTask() {
+        const task = tasks[currentTaskIndex];
+        document.getElementById('progress').innerText = `Aufgabe ${currentTaskIndex + 1} von ${tasks.length}`;
+        document.getElementById('ru-instr').innerText = task.ru;
+        document.getElementById('de-instr').innerText = `(${task.de})`;
+        document.getElementById('feedback').innerText = "";
+        document.getElementById('next-btn').style.display = "none";
+        document.getElementById('check-btn').style.display = "block";
+        clearSlots();
+    }
+
+    function clearSlots() {
+        document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
+        document.getElementById('feedback').innerText = "";
+    }
+
+    function checkAnswer() {
+        const selectedCount = document.querySelectorAll('.slot.selected').length;
+        const correctCount = tasks[currentTaskIndex].correct;
+        const feedback = document.getElementById('feedback');
+
+        if (selectedCount === correctCount) {
+            feedback.innerHTML = `<span class="correct">Richtig! (${correctCount} Kapseln)</span>`;
+            document.getElementById('check-btn').style.display = "none";
+            document.getElementById('next-btn').style.display = "block";
+        } else {
+            feedback.innerHTML = `<span class="wrong">Leider falsch. Überprüfe die Rechnung: Wie viele Kapseln pro Einnahme, wie oft am Tag und wie lange?</span>`;
+        }
+    }
+
+    function nextTask() {
+        currentTaskIndex++;
+        if (currentTaskIndex < tasks.length) {
+            loadTask();
+        } else {
+            showEndScreen();
+        }
+    }
+
+    function showEndScreen() {
+        document.getElementById('game-area').style.display = "none";
+        document.getElementById('end-screen').style.display = "block";
+    }
+
+    function restartGame() {
+        currentTaskIndex = 0;
+        document.getElementById('game-area').style.display = "block";
+        document.getElementById('end-screen').style.display = "none";
+        loadTask();
+    }
+
+    // Initialstart
+    initBlister();
+    loadTask();
+</script>
+
+</body>
+</html>
