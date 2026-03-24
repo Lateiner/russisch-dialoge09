@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --secondary: #e0f2f1;
+            --bg: #f4f7f6;
+            --success: #4caf50;
+            --error: #f44336;
+            --text: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 700px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        h2 { color: var(--primary); text-align: center; }
+        p.instr { text-align: center; color: #666; margin-bottom: 25px; }
+
+        .dialog-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 12px;
+            background: #fff;
+            border: 1px solid #eee;
+            transition: background 0.3s;
+        }
+
+        .play-btn {
+            background: var(--primary);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .play-btn svg { fill: white; width: 20px; height: 20px; }
+
+        .text-content {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: var(--text);
+            flex-grow: 1;
+        }
+
+        .gap {
+            display: inline-block;
+            min-width: 95px;
+            border-bottom: 2px dashed var(--primary);
+            color: var(--primary);
+            font-weight: bold;
+            text-align: center;
+            cursor: pointer;
+            padding: 0 8px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .gap.correct { background-color: var(--success); color: white; border-bottom-color: transparent; }
+        .gap.wrong { background-color: var(--error); color: white; border-bottom-color: transparent; }
+
+        .choice-menu {
+            display: none;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+            background: #eceff1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #cfd8dc;
+        }
+
+        .choice-btn {
+            background: white;
+            border: 1px solid #b0bec5;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--primary);
+            transition: all 0.2s;
+        }
+
+        .choice-btn:hover { background: var(--primary); color: white; }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .action-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            color: white;
+        }
+
+        .btn-sol { background: #607d8b; }
+        .btn-reset { background: #455a64; }
+
+        @media (max-width: 500px) {
+            .text-content { font-size: 1rem; }
+            .choice-btn { width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Lückentext: In der Apotheke</h2>
+    <p class="instr">Wähle ein Wort. Das System zeigt sofort, ob es richtig ist.</p>
+
+    <div id="dialog-area"></div>
+
+    <div class="controls">
+        <button class="action-btn btn-sol" onclick="revealSolution()">Lösung anzeigen</button>
+        <button class="action-btn btn-reset" onclick="resetGame()">Neustart</button>
+    </div>
+</div>
+
+<script>
+    const dialogData = [
+        {
+            text: "Здравствуйте! Чем я могу вам [помочь]?",
+            options: ["помочь", "купить", "болеть"],
+            correct: "помочь"
+        },
+        {
+            text: "Здравствуйте! У меня [температура]. У вас есть что-нибудь от неё?",
+            options: ["температура", "рецепт", "аптека"],
+            correct: "температура"
+        },
+        {
+            text: "Тридцать восемь и [семь]. Болит голова, заложен нос.",
+            options: ["семь", "пять", "один"],
+            correct: "семь"
+        },
+        {
+            text: "Я дам вам [жаропонижающее]. Оно снимет головную боль.",
+            options: ["жаропонижающее", "насморк", "капли"],
+            correct: "жаропонижающее"
+        },
+        {
+            text: "Скажите, как [принимать] это лекарство?",
+            options: ["принимать", "давать", "советовать"],
+            correct: "принимать"
+        },
+        {
+            text: "Оно в [капсулах]. Принимайте во время еды.",
+            options: ["капсулах", "ампулах", "мазях"],
+            correct: "капсулах"
+        },
+        {
+            text: "А [побочные] действия есть?",
+            options: ["побочные", "плохие", "сильные"],
+            correct: "побочные"
+        }
+    ];
+
+    let maleVoice = null;
+
+    function initVoices() {
+        const voices = window.speechSynthesis.getVoices();
+        maleVoice = voices.find(v => v.lang.startsWith('ru') && 
+                    (v.name.includes('Male') || v.name.includes('Pavel') || v.name.includes('Maxim'))) 
+                    || voices.find(v => v.lang.startsWith('ru'));
+    }
+    window.speechSynthesis.onvoiceschanged = initVoices;
+
+    function speak(text) {
+        if (!maleVoice) initVoices();
+        window.speechSynthesis.cancel();
+        const msg = new SpeechSynthesisUtterance(text);
+        msg.voice = maleVoice;
+        msg.lang = 'ru-RU';
+        msg.rate = 0.85;
+        window.speechSynthesis.speak(msg);
+    }
+
+    function shuffle(array) {
+        return array.sort(() => Math.random() - 0.5);
+    }
+
+    function renderGame() {
+        const area = document.getElementById('dialog-area');
+        area.innerHTML = "";
+
+        dialogData.forEach((row, idx) => {
+            const div = document.createElement('div');
+            div.className = "dialog-row";
+            const mixedOptions = shuffle([...row.options]);
+            const audioText = row.text.replace("[", "").replace("]", "");
+            const parts = row.text.split(/\[|\]/);
+            const htmlText = `${parts[0]}<span class="gap" id="gap-${idx}" onclick="toggleMenu(${idx})">...</span>${parts[2]}`;
+
+            div.innerHTML = `
+                <button class="play-btn" onclick="speak('${audioText}')">
+                    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                <div style="flex-grow: 1;">
+                    <div class="text-content">${htmlText}</div>
+                    <div class="choice-menu" id="menu-${idx}">
+                        ${mixedOptions.map(opt => `<button class="choice-btn" onclick="select(${idx}, '${opt}')">${opt}</button>`).join('')}
+                    </div>
+                </div>
+            `;
+            area.appendChild(div);
+        });
+    }
+
+    function toggleMenu(idx) {
+        document.querySelectorAll('.choice-menu').forEach((m, i) => {
+            if (i !== idx) m.style.display = 'none';
+        });
+        const menu = document.getElementById(`menu-${idx}`);
+        menu.style.display = (menu.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function select(idx, val) {
+        const gap = document.getElementById(`gap-${idx}`);
+        const correctVal = dialogData[idx].correct;
+        
+        gap.innerText = val;
+        gap.classList.remove('correct', 'wrong');
+
+        if (val === correctVal) {
+            gap.classList.add('correct');
+        } else {
+            gap.classList.add('wrong');
+        }
+
+        document.getElementById(`menu-${idx}`).style.display = 'none';
+    }
+
+    function revealSolution() {
+        dialogData.forEach((row, i) => {
+            const gap = document.getElementById(`gap-${i}`);
+            gap.innerText = row.correct;
+            gap.classList.remove('wrong');
+            gap.classList.add('correct');
+        });
+    }
+
+    function resetGame() {
+        renderGame();
+    }
+
+    setTimeout(() => {
+        initVoices();
+        renderGame();
+    }, 300);
+</script>
+
+</body>
+</html>
