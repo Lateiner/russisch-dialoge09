@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --secondary: #e0f2f1;
+            --bg: #f4f7f6;
+            --success: #4caf50;
+            --error: #f44336;
+            --text: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 650px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        h2 { color: var(--primary); text-align: center; margin-top: 0; }
+
+        .reference-box {
+            background: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 25px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .reference-box h3 { margin-top: 0; font-size: 1rem; color: var(--primary); }
+
+        .quiz-card {
+            background: #fff;
+            padding: 20px;
+            border: 2px solid var(--secondary);
+            border-radius: 12px;
+            text-align: center;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .statement {
+            font-size: 1.15rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: var(--text);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .quiz-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            flex: 1;
+            max-width: 140px;
+        }
+
+        .btn-true { background-color: var(--success); }
+        .btn-false { background-color: var(--error); }
+
+        .feedback-area {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .fb-correct { background-color: #e8f5e9; color: #2e7d32; border: 1px solid var(--success); }
+        .fb-wrong { background-color: #ffebee; color: #c62828; border: 1px solid var(--error); }
+
+        .next-btn {
+            margin-top: 20px;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+            display: none;
+        }
+
+        .status { margin-bottom: 10px; font-size: 0.9rem; font-weight: bold; color: #777; }
+
+        @media (max-width: 480px) {
+            .btn-group { flex-direction: column; align-items: center; }
+            .quiz-btn { max-width: 100%; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Richtig oder Falsch?</h2>
+
+    <div class="reference-box">
+        <h3>Dialog-Check (Auszug)</h3>
+        — Температура: <b>38,7</b><br>
+        — Лекарство: <b>в капсулах</b> (жаропонижающее)<br>
+        — Принимать: <b>2 раза в день</b> (во время еды)<br>
+        — Побочные действия: <b>сонливость</b>
+    </div>
+
+    <div class="status" id="progress">Frage 1 / 6</div>
+
+    <div id="quiz-card" class="quiz-card">
+        <div id="statement" class="statement">Lade Frage...</div>
+        
+        <div class="btn-group" id="btn-group">
+            <button class="quiz-btn btn-true" onclick="handleAnswer(true)">Richtig</button>
+            <button class="quiz-btn btn-false" onclick="handleAnswer(false)">Falsch</button>
+        </div>
+
+        <div id="feedback" class="feedback-area"></div>
+        <button id="next-btn" class="next-btn" onclick="nextQuestion()">Weiter ➔</button>
+    </div>
+
+    <button id="restart-btn" class="next-btn" style="background:#555" onclick="initQuiz()">Quiz neu starten</button>
+</div>
+
+<script>
+    const questions = [
+        { 
+            text: "Der Kunde hat 39,5 Grad Fieber.", 
+            answer: false, 
+            info: "Falsch: Im Dialog sagt der Kunde, er habe 38,7 Grad (Тридцать восемь и семь)." 
+        },
+        { 
+            text: "Das Medikament soll auch die Kopfschmerzen lindern.", 
+            answer: true, 
+            info: "Richtig: Der Apotheker sagt, dass es die Kopfschmerzen lindert (снимет головную боль)." 
+        },
+        { 
+            text: "Der Kunde muss die Medizin dreimal täglich einnehmen.", 
+            answer: false, 
+            info: "Falsch: Die Anweisung lautet zweimal täglich (два раза в день)." 
+        },
+        { 
+            text: "Das Medikament ist in Kapselform.", 
+            answer: true, 
+            info: "Richtig: Der Apotheker bestätigt: 'Оно в капсулах' (Es ist in Kapseln)." 
+        },
+        { 
+            text: "Die Einnahme erfolgt vor dem Essen (auf nüchternen Magen).", 
+            answer: false, 
+            info: "Falsch: Es soll während der Mahlzeiten eingenommen werden (во время еды)." 
+        },
+        { 
+            text: "Eine Nebenwirkung kann Schläfrigkeit sein.", 
+            answer: true, 
+            info: "Richtig: Der Apotheker warnt vor Schläfrigkeit (сонливость)." 
+        }
+    ];
+
+    let currentIdx = 0;
+    let score = 0;
+
+    function initQuiz() {
+        currentIdx = 0;
+        score = 0;
+        document.getElementById('restart-btn').style.display = 'none';
+        showQuestion();
+    }
+
+    function showQuestion() {
+        const q = questions[currentIdx];
+        document.getElementById('progress').innerText = `Frage ${currentIdx + 1} / ${questions.length}`;
+        document.getElementById('statement').innerText = q.text;
+        document.getElementById('feedback').style.display = 'none';
+        document.getElementById('btn-group').style.display = 'flex';
+        document.getElementById('next-btn').style.display = 'none';
+    }
+
+    function handleAnswer(userGuess) {
+        const q = questions[currentIdx];
+        const feedback = document.getElementById('feedback');
+        const isCorrect = (userGuess === q.answer);
+
+        if (isCorrect) {
+            score++;
+            feedback.className = "feedback-area fb-correct";
+            feedback.innerHTML = "<b>Richtig!</b><br>" + q.info;
+        } else {
+            feedback.className = "feedback-area fb-wrong";
+            feedback.innerHTML = "<b>Leider falsch...</b><br>" + q.info;
+        }
+
+        feedback.style.display = 'block';
+        document.getElementById('btn-group').style.display = 'none';
+        document.getElementById('next-btn').style.display = 'block';
+    }
+
+    function nextQuestion() {
+        currentIdx++;
+        if (currentIdx < questions.length) {
+            showQuestion();
+        } else {
+            showFinalResult();
+        }
+    }
+
+    function showFinalResult() {
+        document.getElementById('statement').innerText = `Quiz beendet! \n Ergebnis: ${score} von ${questions.length} Punkten.`;
+        document.getElementById('btn-group').style.display = 'none';
+        document.getElementById('feedback').style.display = 'none';
+        document.getElementById('next-btn').style.display = 'none';
+        document.getElementById('restart-btn').style.display = 'block';
+    }
+
+    initQuiz();
+</script>
+
+</body>
+</html>
