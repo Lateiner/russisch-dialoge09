@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --bg: #f4f7f6;
+            --error: #f44336;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        h2 { color: var(--primary); text-align: center; margin-bottom: 20px; }
+        p { text-align: center; color: #666; font-size: 0.9rem; }
+
+        .matching-area {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .item {
+            padding: 15px;
+            background: white;
+            border: 2px solid #eee;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            text-align: center;
+            transition: all 0.4s ease;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            font-size: 0.95rem;
+        }
+
+        .item.selected { border-color: var(--primary); background: #e0f2f1; }
+        
+        /* Gefundene Paare verschwinden */
+        .matched {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.8);
+        }
+
+        .wrong { border-color: var(--error); background: #ffebee; animation: shake 0.4s; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* Lösungsfarben für die 8 Paare */
+        .pair-0 { background-color: #ffcdd2 !important; border-color: #e53935 !important; opacity: 1 !important; }
+        .pair-1 { background-color: #e1bee7 !important; border-color: #8e24aa !important; opacity: 1 !important; }
+        .pair-2 { background-color: #c5cae9 !important; border-color: #3f51b5 !important; opacity: 1 !important; }
+        .pair-3 { background-color: #b3e5fc !important; border-color: #03a9f4 !important; opacity: 1 !important; }
+        .pair-4 { background-color: #b2dfdb !important; border-color: #009688 !important; opacity: 1 !important; }
+        .pair-5 { background-color: #dcedc8 !important; border-color: #8bc34a !important; opacity: 1 !important; }
+        .pair-6 { background-color: #fff9c4 !important; border-color: #fbc02d !important; opacity: 1 !important; }
+        .pair-7 { background-color: #ffe0b2 !important; border-color: #fb8c00 !important; opacity: 1 !important; }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+        .btn-restart { background: #555; color: white; }
+        .btn-sol { background: var(--primary); color: white; }
+
+        @media (max-width: 600px) {
+            .matching-area { flex-direction: column; }
+            .item { font-size: 0.85rem; padding: 10px; min-height: 40px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Was hilft wogegen?</h2>
+    <p>Wähle ein Symptom (links) und das passende Medikament (rechts).</p>
+    
+    <div class="matching-area">
+        <div class="column" id="left-col"></div>
+        <div class="column" id="right-col"></div>
+    </div>
+
+    <div class="controls">
+        <button class="btn-sol" onclick="showSolution()">Lösung anzeigen</button>
+        <button class="btn-restart" onclick="initGame()">Neustart</button>
+    </div>
+</div>
+
+<script>
+    const data = [
+        { id: 0, s: "температура", m: "жаропонижающее" },
+        { id: 1, s: "насморк", m: "капли в нос" },
+        { id: 2, s: "болит голова", m: "обезболивающее" },
+        { id: 3, s: "болит живот", m: "гель для желудка" },
+        { id: 4, s: "заложен нос", m: "спрей для носа" },
+        { id: 5, s: "вирус", m: "антибиотик" },
+        { id: 6, s: "кашель", m: "сироп от кашля" },
+        { id: 7, s: "болят мышцы", m: "мазь для мышц" }
+    ];
+
+    let selectedLeft = null;
+
+    function shuffle(arr) {
+        return arr.sort(() => Math.random() - 0.5);
+    }
+
+    function initGame() {
+        selectedLeft = null;
+        const leftCol = document.getElementById('left-col');
+        const rightCol = document.getElementById('right-col');
+        leftCol.innerHTML = '';
+        rightCol.innerHTML = '';
+
+        const shuffledLeft = shuffle([...data]);
+        const shuffledRight = shuffle([...data]);
+
+        shuffledLeft.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'item';
+            div.id = `left-${item.id}`;
+            div.innerText = item.s;
+            div.onclick = () => selectLeft(item.id, div);
+            leftCol.appendChild(div);
+        });
+
+        shuffledRight.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'item';
+            div.id = `right-${item.id}`;
+            div.innerText = item.m;
+            div.onclick = () => selectRight(item.id, div);
+            rightCol.appendChild(div);
+        });
+    }
+
+    function selectLeft(id, el) {
+        document.querySelectorAll('#left-col .item').forEach(i => i.classList.remove('selected'));
+        el.classList.add('selected');
+        selectedLeft = id;
+    }
+
+    function selectRight(id, el) {
+        if (selectedLeft === null) return;
+
+        const leftEl = document.getElementById(`left-${selectedLeft}`);
+
+        if (selectedLeft === id) {
+            // Richtig
+            leftEl.classList.add('matched');
+            el.classList.add('matched');
+            selectedLeft = null;
+        } else {
+            // Falsch
+            el.classList.add('wrong');
+            setTimeout(() => el.classList.remove('wrong'), 400);
+            leftEl.classList.remove('selected');
+            selectedLeft = null;
+        }
+    }
+
+    function showSolution() {
+        data.forEach(item => {
+            const l = document.getElementById(`left-${item.id}`);
+            const r = document.getElementById(`right-${item.id}`);
+            l.classList.remove('matched', 'selected');
+            r.classList.remove('matched', 'selected');
+            l.classList.add(`pair-${item.id}`);
+            r.classList.add(`pair-${item.id}`);
+            l.style.opacity = "1";
+            r.style.opacity = "1";
+            l.style.pointerEvents = "none";
+            r.style.pointerEvents = "none";
+        });
+    }
+
+    initGame();
+</script>
+
+</body>
+</html>
