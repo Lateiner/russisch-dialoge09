@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --bg: #f4f7f6;
+            --success: #4caf50;
+            --error: #f44336;
+            --text: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 700px;
+            width: 100%;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .progress { color: #888; font-size: 0.9rem; margin-bottom: 15px; }
+
+        h2 { color: var(--primary); margin-bottom: 20px; }
+        .instr { color: #666; margin-bottom: 30px; }
+
+        /* Satz-Display */
+        .sentence-display {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 12px;
+            border: 1px solid #eee;
+        }
+
+        .word {
+            font-size: 1.3rem;
+            padding: 5px 8px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.2s;
+            user-select: none;
+            border: 2px solid transparent;
+        }
+
+        .word:hover { background-color: #e0f2f1; border-color: var(--primary); }
+
+        /* Zustände */
+        .word.wrong-selected { background-color: var(--error); color: white; border-color: #b71c1c; }
+        .word.correct-found { background-color: var(--success); color: white; border-color: #2e7d32; }
+
+        /* Korrektur-Anzeige */
+        .correction-box {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            font-weight: bold;
+            font-size: 1.1rem;
+            animation: fadeIn 0.4s;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } }
+
+        /* Buttons */
+        .controls { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+        
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .btn-next { background: var(--primary); color: white; }
+        .btn-restart { background: #777; color: white; }
+
+        @media (max-width: 500px) {
+            .word { font-size: 1.1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="game-area">
+        <div class="progress" id="progress">Satz 1 von 6</div>
+        <h2>Fehlersuche</h2>
+        <p class="instr">In jedem Satz ist ein Wort falsch. Klicke auf das falsche Wort!</p>
+
+        <div id="sentence" class="sentence-display">
+            <!-- Wörter werden hier generiert -->
+        </div>
+
+        <div id="correction" class="correction-box"></div>
+
+        <div class="controls">
+            <button id="next-btn" class="btn-next" onclick="nextTask()" style="display:none;">Nächster Satz ➔</button>
+            <button id="restart-btn" class="btn-restart" onclick="restartGame()" style="display:none;">Neustart</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const tasks = [
+        {
+            sentence: "Принимайте по одной мази два раза в день.",
+            errorIndex: 3, // мази
+            correction: "Правильно: «Принимайте по одной капсуле...» (Kapsel statt Salbe)",
+            audio: "Принимайте по одной капсуле два раза в день."
+        },
+        {
+            sentence: "Тридцать восемь и семь килограммов.",
+            errorIndex: 4, // килограммов
+            correction: "Правильно: «Тридцать восемь и семь.» (Man nennt beim Fieber keine Kilogramm)",
+            audio: "Тридцать восемь и семь."
+        },
+        {
+            sentence: "У меня заложен голова.",
+            errorIndex: 3, // голова
+            correction: "Правильно: «У меня заложен нос.» (Die Nase ist verstopft, nicht der Kopf)",
+            audio: "У меня заложен нос."
+        },
+        {
+            sentence: "Я дам вам антибиотик от температуры.",
+            errorIndex: 3, // антибиотик
+            correction: "Правильно: «Я дам вам жаропонижающее...» (Fiebersenker statt Antibiotikum)",
+            audio: "Я дам вам жаропонижающее."
+        },
+        {
+            sentence: "Принимайте лекарство во время игры.",
+            errorIndex: 4, // игры
+            correction: "Правильно: «Принимайте лекарство во время еды.» (Essen statt Spiel)",
+            audio: "Принимайте лекарство во время еды."
+        },
+        {
+            sentence: "Врач продаст вам рецепт на лекарство.",
+            errorIndex: 1, // продаст
+            correction: "Правильно: «Врач выпишет вам рецепт...» (verschreiben statt verkaufen)",
+            audio: "Врач выпишет вам рецепet."
+        }
+    ];
+
+    let currentTask = 0;
+    let answered = false;
+    let maleVoice = null;
+
+    // Audio initialisieren (Männliche Stimme)
+    function initVoices() {
+        const voices = window.speechSynthesis.getVoices();
+        maleVoice = voices.find(v => v.lang.startsWith('ru') && 
+                    (v.name.includes('Male') || v.name.includes('Pavel') || v.name.includes('Maxim'))) 
+                    || voices.find(v => v.lang.startsWith('ru'));
+    }
+    window.speechSynthesis.onvoiceschanged = initVoices;
+
+    function playCorrect(text) {
+        if (!maleVoice) initVoices();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.voice = maleVoice;
+        utterance.lang = 'ru-RU';
+        utterance.rate = 0.85;
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function loadTask() {
+        answered = false;
+        const task = tasks[currentTask];
+        document.getElementById('progress').innerText = `Satz ${currentTask + 1} von ${tasks.length}`;
+        document.getElementById('correction').style.display = "none";
+        document.getElementById('next-btn').style.display = "none";
+
+        const sentenceEl = document.getElementById('sentence');
+        sentenceEl.innerHTML = "";
+
+        const words = task.sentence.split(" ");
+        words.forEach((word, index) => {
+            const span = document.createElement('span');
+            span.className = "word";
+            span.innerText = word;
+            span.onclick = () => checkWord(span, index);
+            sentenceEl.appendChild(span);
+        });
+    }
+
+    function checkWord(element, index) {
+        if (answered) return;
+
+        const task = tasks[currentTask];
+        if (index === task.errorIndex) {
+            element.classList.add('correct-found');
+            showCorrection(task);
+            answered = true;
+        } else {
+            element.classList.add('wrong-selected');
+            setTimeout(() => {
+                if(!answered) element.classList.remove('wrong-selected');
+            }, 1000);
+        }
+    }
+
+    function showCorrection(task) {
+        const box = document.getElementById('correction');
+        box.innerText = task.correction;
+        box.style.display = "block";
+        document.getElementById('next-btn').style.display = "block";
+        playCorrect(task.audio);
+    }
+
+    function nextTask() {
+        currentTask++;
+        if (currentTask < tasks.length) {
+            loadTask();
+        } else {
+            showEndScreen();
+        }
+    }
+
+    function showEndScreen() {
+        document.getElementById('sentence').innerHTML = "<h3>Отлично! Du hast alle Fehler gefunden.</h3>";
+        document.getElementById('progress').innerText = "Abgeschlossen";
+        document.getElementById('correction').style.display = "none";
+        document.getElementById('next-btn').style.display = "none";
+        document.getElementById('restart-btn').style.display = "block";
+    }
+
+    function restartGame() {
+        currentTask = 0;
+        document.getElementById('restart-btn').style.display = "none";
+        loadTask();
+    }
+
+    // Start
+    initVoices();
+    loadTask();
+</script>
+
+</body>
+</html>
