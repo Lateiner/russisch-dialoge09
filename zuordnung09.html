@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --secondary: #e0f2f1;
+            --accent: #ff5722;
+            --bg: #f4f7f6;
+            --success: #4caf50;
+            --error: #f44336;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .comic-container {
+            max-width: 600px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Comic-Szene */
+        .comic-scene {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: #fff9c4;
+            padding: 20px;
+            border-radius: 15px;
+            border: 3px solid #333;
+            min-height: 120px;
+        }
+
+        .pharmacist-avatar {
+            width: 80px;
+            height: 80px;
+            background: #ddd;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            border: 3px solid #333;
+            flex-shrink: 0;
+        }
+
+        .speech-bubble {
+            background: white;
+            border: 3px solid #333;
+            border-radius: 15px;
+            padding: 15px;
+            position: relative;
+            font-weight: bold;
+            font-size: 1.1rem;
+            flex-grow: 1;
+        }
+
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            left: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-width: 8px 15px 8px 0;
+            border-style: solid;
+            border-color: transparent #333 transparent transparent;
+        }
+
+        /* Antwort-Optionen */
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 200px;
+        }
+
+        .option-btn {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: all 0.2s;
+            text-align: left;
+            width: 100%;
+        }
+
+        .option-btn:hover:not(.correct):not(.wrong) {
+            border-color: var(--primary);
+            background: var(--secondary);
+        }
+
+        .correct {
+            background-color: var(--success) !important;
+            color: white !important;
+            border-color: #2e7d32 !important;
+        }
+
+        .wrong {
+            background-color: var(--error) !important;
+            color: white !important;
+            border-color: #c62828 !important;
+        }
+
+        /* Fortschrittsbalken */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* Steuerungs-Buttons */
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        button.nav-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: var(--primary);
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button.restart-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: #777;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .sol-link {
+            color: #777;
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        /* Media Queries für Handys */
+        @media (max-width: 480px) {
+            .comic-scene { flex-direction: column; text-align: center; }
+            .speech-bubble::after { display: none; }
+            .option-btn { font-size: 0.9rem; padding: 12px; }
+            .pharmacist-avatar { width: 60px; height: 60px; font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="comic-container">
+    <div class="progress-bar">
+        <div id="progress-fill" class="progress-fill"></div>
+    </div>
+
+    <div class="comic-scene">
+        <div class="pharmacist-avatar">👨‍⚕️</div>
+        <div id="pharmacist-text" class="speech-bubble">
+            <!-- Text des Apothekers -->
+        </div>
+    </div>
+
+    <div id="options" class="options-container">
+        <!-- Antwort-Buttons -->
+    </div>
+
+    <div class="controls">
+        <span id="sol-link" class="sol-link" onclick="showSolution()">Lösung anzeigen</span>
+        <div style="display: flex; gap: 10px;">
+            <button id="restart-btn-small" class="restart-btn" onclick="restartGame()">Neustart</button>
+            <button id="next-btn" class="nav-btn" onclick="nextRound()" style="display:none;">Weiter ➔</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const quizData = [
+        {
+            q: "Здравствуйте! Чем я могу вам помочь?",
+            options: [
+                "У меня температура. У вас есть что-нибудь от неё?",
+                "Да, может быть сонливость.",
+                "Оно в капсулах. Принимайте во время еды."
+            ],
+            correct: 0
+        },
+        {
+            q: "Какая у вас температура и какие еще симптомы есть?",
+            options: [
+                "Я дам вам жаропонижающее.",
+                "Тридцать восемь и семь. Болит голова, заложен нос.",
+                "Спасибо! Скажите, как принимать лекарство?"
+            ],
+            correct: 1
+        },
+        {
+            q: "Я дам вам жаропонижающее. Оно снимet головную боль.",
+            options: [
+                "Спасибо! Скажите, как принимать жаропонижающее?",
+                "У меня заложен нос.",
+                "Какая у вас температура?"
+            ],
+            correct: 0
+        },
+        {
+            q: "Врач выпишет вам антибиотики, если температура не спадёт.",
+            options: [
+                "Как принимать жаропонижающее?",
+                "Тридцать восемь и семь.",
+                "Большое спасибо! А побочные действия есть?"
+            ],
+            correct: 2
+        }
+    ];
+
+    let currentRound = 0;
+    let answered = false;
+
+    function initRound() {
+        answered = false;
+        document.getElementById('next-btn').style.display = "none";
+        document.getElementById('sol-link').style.visibility = "visible";
+        
+        const data = quizData[currentRound];
+        document.getElementById('pharmacist-text').innerText = data.q;
+        
+        // Fortschritt berechnen
+        const progress = (currentRound / quizData.length) * 100;
+        document.getElementById('progress-fill').style.width = progress + "%";
+
+        const optionsContainer = document.getElementById('options');
+        optionsContainer.innerHTML = "";
+        
+        data.options.forEach((text, index) => {
+            const btn = document.createElement('button');
+            btn.className = "option-btn";
+            btn.innerText = text;
+            btn.onclick = () => checkAnswer(btn, index);
+            optionsContainer.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(btn, index) {
+        if (answered) return;
+        
+        const data = quizData[currentRound];
+        if (index === data.correct) {
+            btn.classList.add('correct');
+            answered = true;
+            document.getElementById('next-btn').style.display = "block";
+            document.getElementById('sol-link').style.visibility = "hidden";
+        } else {
+            btn.classList.add('wrong');
+            setTimeout(() => btn.classList.remove('wrong'), 800);
+        }
+    }
+
+    function showSolution() {
+        if (answered) return;
+        const btns = document.querySelectorAll('.option-btn');
+        const correctIdx = quizData[currentRound].correct;
+        btns[correctIdx].classList.add('correct');
+        answered = true;
+        document.getElementById('next-btn').style.display = "block";
+        document.getElementById('sol-link').style.visibility = "hidden";
+    }
+
+    function nextRound() {
+        currentRound++;
+        if (currentRound < quizData.length) {
+            initRound();
+        } else {
+            showEndScreen();
+        }
+    }
+
+    function showEndScreen() {
+        document.getElementById('progress-fill').style.width = "100%";
+        document.getElementById('pharmacist-text').innerText = "Будьте здоровы! (Bleiben Sie gesund!)";
+        document.getElementById('options').innerHTML = `
+            <div style="text-align:center; padding: 20px;">
+                <p>Glückwunsch! Du hast alle Situationen gemeistert.</p>
+                <button class="nav-btn" onclick="restartGame()" style="font-size:1.2rem; padding: 15px 30px;">Nochmal spielen</button>
+            </div>
+        `;
+        document.getElementById('next-btn').style.display = "none";
+        document.getElementById('sol-link').style.visibility = "hidden";
+        document.getElementById('restart-btn-small').style.display = "none";
+    }
+
+    function restartGame() {
+        currentRound = 0;
+        document.getElementById('restart-btn-small').style.display = "block";
+        initRound();
+    }
+
+    // Start des Spiels beim Laden
+    initRound();
+</script>
+
+</body>
+</html>
