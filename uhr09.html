@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00796b;
+            --bg: #f4f7f6;
+            --success: #4caf50;
+            --error: #f44336;
+            --highlight: #e0f2f1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 650px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .progress { color: #888; font-size: 0.9rem; margin-bottom: 10px; }
+
+        .instruction-box {
+            background-color: var(--highlight);
+            border-left: 5px solid var(--primary);
+            padding: 15px;
+            margin-bottom: 30px;
+            text-align: left;
+            border-radius: 8px;
+        }
+
+        .ru-text { font-weight: bold; font-size: 1.2rem; color: var(--primary); display: block; margin-bottom: 5px; }
+        .de-text { font-size: 0.95rem; color: #555; }
+
+        /* Timeline Design */
+        .timeline-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            margin: 40px 0;
+            background: #f9f9f9;
+            padding: 20px 10px;
+            border-radius: 15px;
+            border: 2px solid #eee;
+            overflow-x: auto;
+        }
+
+        .meal-unit {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .meal-icon {
+            font-size: 2.5rem;
+            background: #fff;
+            padding: 10px;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 2;
+        }
+
+        .slot {
+            width: 60px;
+            height: 60px;
+            border: 2px dashed #bbb;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            background: #fff;
+        }
+
+        .slot:hover { border-color: var(--primary); background: var(--highlight); }
+        .slot.correct { border-color: var(--success); background-color: #e8f5e9; border-style: solid; }
+        .slot.wrong { border-color: var(--error); background-color: #ffebee; border-style: solid; }
+
+        .slot-label {
+            position: absolute;
+            top: -25px;
+            font-size: 0.7rem;
+            color: #999;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .pill {
+            font-size: 1.8rem;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        /* Buttons */
+        .controls { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+        
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .btn-restart { background: #777; color: white; margin-top: 10px; }
+        .btn-next { background: var(--success); color: white; display: none; }
+        
+        #feedback { font-weight: bold; margin-top: 15px; min-height: 1.5em; }
+
+        @media (max-width: 500px) {
+            .timeline-container { gap: 3px; padding: 15px 5px; }
+            .slot { width: 45px; height: 45px; }
+            .meal-icon { font-size: 1.8rem; padding: 5px; }
+            .slot-label { font-size: 0.6rem; top: -20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="game-area">
+        <div class="progress" id="progress">Aufgabe 1 von 5</div>
+        <h2>Время приёма — Einnahmezeit</h2>
+        
+        <div class="instruction-box">
+            <span class="ru-text" id="ru-instr">Загрузка...</span>
+            <span class="de-text" id="de-instr">Lade...</span>
+        </div>
+
+        <p>Klicke auf das richtige Feld auf der Zeitachse:</p>
+        
+        <div class="timeline-container">
+            <div class="meal-unit">
+                <div class="slot" onclick="checkSlot('before', this)">
+                    <span class="slot-label">До (Vor)</span>
+                </div>
+                <div class="meal-icon">🥗</div>
+                <div class="slot" onclick="checkSlot('during', this)">
+                    <span class="slot-label">Во время</span>
+                </div>
+                <div class="meal-icon" style="box-shadow: none; background: none; margin: 0 -10px;">➔</div>
+                <div class="slot" onclick="checkSlot('after', this)">
+                    <span class="slot-label">После (Nach)</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="feedback"></div>
+
+        <div class="controls">
+            <button id="next-btn" class="btn-next" onclick="nextTask()">Nächste Aufgabe ➔</button>
+            <button class="btn-restart" onclick="restartGame()">Neustart</button>
+        </div>
+    </div>
+
+    <!-- End-Screen -->
+    <div id="end-screen" style="display:none;">
+        <div style="font-size: 4rem; margin-bottom: 20px;">⏰</div>
+        <h2>Отлично! (Ausgezeichnet!)</h2>
+        <p>Du hast alle Einnahmezeiten korrekt zugeordnet.</p>
+        <button class="btn-restart" style="background: var(--primary); padding: 15px 30px;" onclick="restartGame()">Nochmal spielen</button>
+    </div>
+</div>
+
+<script>
+    const tasks = [
+        {
+            ru: "Принимайте лекарство во время еды.",
+            de: "Nehmen Sie das Medikament während des Essens ein.",
+            correct: "during"
+        },
+        {
+            ru: "Принимайте лекарство до еды.",
+            de: "Nehmen Sie das Medikament vor dem Essen ein.",
+            correct: "before"
+        },
+        {
+            ru: "Принимайте лекарство после еды.",
+            de: "Nehmen Sie das Medikament nach dem Essen ein.",
+            correct: "after"
+        },
+        {
+            ru: "Лекарство нужно принимать за 30 минут до еды.",
+            de: "Das Medikament muss 30 Minuten vor dem Essen eingenommen werden.",
+            correct: "before"
+        },
+        {
+            ru: "Принимайте через 1 час после приёма пищи.",
+            de: "Nehmen Sie es 1 Stunde nach der Mahlzeit ein.",
+            correct: "after"
+        }
+    ];
+
+    let currentTask = 0;
+    let answered = false;
+
+    function loadTask() {
+        answered = false;
+        const task = tasks[currentTask];
+        document.getElementById('progress').innerText = `Aufgabe ${currentTask + 1} von ${tasks.length}`;
+        document.getElementById('ru-instr').innerText = task.ru;
+        document.getElementById('de-instr').innerText = `(${task.de})`;
+        document.getElementById('feedback').innerText = "";
+        document.getElementById('next-btn').style.display = "none";
+        
+        // Slots zurücksetzen
+        document.querySelectorAll('.slot').forEach(s => {
+            s.className = "slot";
+            const pill = s.querySelector('.pill');
+            if (pill) pill.remove();
+        });
+    }
+
+    function checkSlot(type, element) {
+        if (answered) return;
+
+        const correctType = tasks[currentTask].correct;
+        
+        if (type === correctType) {
+            element.classList.add('correct');
+            element.innerHTML += '<span class="pill">💊</span>';
+            document.getElementById('feedback').innerHTML = "<span style='color:var(--success)'>Richtig!</span>";
+            answered = true;
+            document.getElementById('next-btn').style.display = "block";
+        } else {
+            element.classList.add('wrong');
+            document.getElementById('feedback').innerHTML = "<span style='color:var(--error)'>Falsch. Schau dir die Präposition im russischen Satz genau an.</span>";
+            setTimeout(() => {
+                if(!answered) element.classList.remove('wrong');
+            }, 1000);
+        }
+    }
+
+    function nextTask() {
+        currentTask++;
+        if (currentTask < tasks.length) {
+            loadTask();
+        } else {
+            document.getElementById('game-area').style.display = "none";
+            document.getElementById('end-screen').style.display = "block";
+        }
+    }
+
+    function restartGame() {
+        currentTask = 0;
+        document.getElementById('game-area').style.display = "block";
+        document.getElementById('end-screen').style.display = "none";
+        loadTask();
+    }
+
+    // Start
+    loadTask();
+</script>
+
+</body>
+</html>
